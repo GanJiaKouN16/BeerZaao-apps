@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- background circle -->
+    <path
+        android:fillColor="#B71C1C"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+    
+    <!-- candlestick 1 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,74 h8 v6 h-8 z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M34,64 L34,82" />
+    
+    <!-- candlestick 2 (red up) -->
+    <path
+        android:fillColor="#EF5350"
+        android:pathData="M46,62 h8 v8 h-8 z" />
+    <path
+        android:strokeColor="#EF5350"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M50,54 L50,72" />
+    
+    <!-- candlestick 3 (red up, highest) -->
+    <path
+        android:fillColor="#EF5350"
+        android:pathData="M62,48 h8 v10 h-8 z" />
+    <path
+        android:strokeColor="#EF5350"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M66,38 L66,60" />
+    
+    <!-- upward arrow -->
+    <path
+        android:fillColor="#EF5350"
+        android:pathData="M72,46 L82,34 L92,46 h-6 v14 h-8 v-14 h-6 Z" />
+</vector>

@@ -1,0 +1,6 @@
+# Ensure gradlew uses LF line endings on all platforms
+gradlew text eol=lf
+
+# Binary files
+gradle/wrapper/gradle-wrapper.jar binary
+*.jar binary
