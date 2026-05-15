@@ -49,26 +49,42 @@ class UpdateManager(private val context: Context) {
     private val repoOwner = "GanJiaKouN16"
     private val repoName = "BeerZaao-apps"
 
+    private val updateUrls = listOf(
+        "https://cdn.jsdelivr.net/gh/$repoOwner/$repoName@master/update.json",
+        "https://raw.githubusercontent.com/$repoOwner/$repoName/master/update.json"
+    )
+
     suspend fun checkForUpdate(): UpdateState = withContext(Dispatchers.IO) {
         try {
-            val url = "https://raw.githubusercontent.com/$repoOwner/$repoName/master/update.json"
-            val request = Request.Builder().url(url).build()
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) {
-                return@withContext UpdateState.Error("检查更新失败: ${response.code}")
+            var lastError: Exception? = null
+            for (url in updateUrls) {
+                try {
+                    val request = Request.Builder().url(url).build()
+                    val response = client.newCall(request).execute()
+                    if (!response.isSuccessful) {
+                        lastError = Exception("检查更新失败: ${response.code}")
+                        continue
+                    }
+                    val body = response.body?.string() ?: run {
+                        lastError = Exception("响应为空")
+                        continue
+                    }
+                    val updateInfo = gson.fromJson(body, UpdateInfo::class.java)
+
+                    val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
+
+                    if (compareVersions(updateInfo.latestVersion, currentVersion) <= 0) {
+                        return@withContext UpdateState.UpToDate
+                    }
+
+                    if (updateInfo.apkUrl.isNullOrEmpty()) return@withContext UpdateState.Error("未找到 APK 下载地址")
+
+                    return@withContext UpdateState.Available(updateInfo)
+                } catch (e: Exception) {
+                    lastError = e
+                }
             }
-            val body = response.body?.string() ?: return@withContext UpdateState.Error("响应为空")
-            val updateInfo = gson.fromJson(body, UpdateInfo::class.java)
-
-            val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
-
-            if (compareVersions(updateInfo.latestVersion, currentVersion) <= 0) {
-                return@withContext UpdateState.UpToDate
-            }
-
-            if (updateInfo.apkUrl.isNullOrEmpty()) return@withContext UpdateState.Error("未找到 APK 下载地址")
-
-            UpdateState.Available(updateInfo)
+            UpdateState.Error("检查更新失败: ${lastError?.message}")
         } catch (e: Exception) {
             UpdateState.Error("检查更新失败: ${e.message}")
         }
