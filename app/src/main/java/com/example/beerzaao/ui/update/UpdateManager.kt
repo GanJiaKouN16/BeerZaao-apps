@@ -55,55 +55,62 @@ class UpdateManager(private val context: Context) {
     )
 
     suspend fun checkForUpdate(): UpdateState = withContext(Dispatchers.IO) {
-        try {
-            var lastError: Exception? = null
-            for (baseUrl in githubApiUrls) {
-                try {
-                    val request = Request.Builder()
-                        .url(baseUrl)
-                        .addHeader("Accept", "application/vnd.github.v3+json")
-                        .build()
-                    val response = client.newCall(request).execute()
-                    if (!response.isSuccessful) {
-                        lastError = Exception("检查更新失败: ${response.code}")
-                        continue
-                    }
-                    val body = response.body?.string() ?: run {
-                        lastError = Exception("响应为空")
-                        continue
-                    }
-                    val release = gson.fromJson(body, GitHubRelease::class.java)
-
-                    val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
-                    val latestVersion = release.tagName.removePrefix("v")
-
-                    if (compareVersions(latestVersion, currentVersion) <= 0) {
-                        return@withContext UpdateState.UpToDate
-                    }
-
-                    val apkAsset = release.assets?.firstOrNull { it.name.endsWith(".apk") }
-                    if (apkAsset == null) {
-                        lastError = Exception("未找到 APK 文件")
-                        continue
-                    }
-
-                    val updateInfo = UpdateInfo(
-                        version = latestVersion,
-                        downloadUrl = apkAsset.downloadUrl,
-                        releaseDate = release.publishedAt,
-                        notes = release.body,
-                        releaseUrl = release.htmlUrl
-                    )
-
-                    return@withContext UpdateState.Available(updateInfo)
-                } catch (e: Exception) {
-                    lastError = e
-                }
+        var lastError: Exception? = null
+        for (baseUrl in githubApiUrls) {
+            val result = tryFetchRelease(baseUrl)
+            when (result) {
+                is FetchResult.Success -> return@withContext result.state
+                is FetchResult.Error -> lastError = result.exception
             }
-            UpdateState.Error("检查更新失败: ${lastError?.message}")
-        } catch (e: Exception) {
-            UpdateState.Error("检查更新失败: ${e.message}")
         }
+        UpdateState.Error("检查更新失败: ${lastError?.message}")
+    }
+
+    private fun tryFetchRelease(url: String): FetchResult {
+        return try {
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Accept", "application/vnd.github.v3+json")
+                .build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) {
+                return FetchResult.Error(Exception("检查更新失败: ${response.code}"))
+            }
+            val body = response.body?.string()
+            if (body == null) {
+                return FetchResult.Error(Exception("响应为空"))
+            }
+            val release = gson.fromJson(body, GitHubRelease::class.java)
+
+            val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
+            val latestVersion = release.tagName.removePrefix("v")
+
+            if (compareVersions(latestVersion, currentVersion) <= 0) {
+                return FetchResult.Success(UpdateState.UpToDate)
+            }
+
+            val apkAsset = release.assets?.firstOrNull { it.name.endsWith(".apk") }
+            if (apkAsset == null) {
+                return FetchResult.Error(Exception("未找到 APK 文件"))
+            }
+
+            val updateInfo = UpdateInfo(
+                version = latestVersion,
+                downloadUrl = apkAsset.downloadUrl,
+                releaseDate = release.publishedAt,
+                notes = release.body,
+                releaseUrl = release.htmlUrl
+            )
+
+            FetchResult.Success(UpdateState.Available(updateInfo))
+        } catch (e: Exception) {
+            FetchResult.Error(e)
+        }
+    }
+
+    private sealed class FetchResult {
+        data class Success(val state: UpdateState) : FetchResult()
+        data class Error(val exception: Exception) : FetchResult()
     }
 
     suspend fun downloadFullApk(apkUrl: String, onProgress: (Float) -> Unit): Result<File> = withContext(Dispatchers.IO) {
