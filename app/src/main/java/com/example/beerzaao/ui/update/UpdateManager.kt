@@ -30,8 +30,8 @@ class UpdateManager(private val context: Context) {
 
     private val gson = Gson()
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.MINUTES)
         .build()
 
     private val updateDir: File
@@ -113,13 +113,25 @@ class UpdateManager(private val context: Context) {
         data class Error(val exception: Exception) : FetchResult()
     }
 
+    private val downloadMirrors = listOf(
+        { url: String -> "https://ghfast.top/$url" },
+        { url: String -> "https://gh-proxy.com/$url" },
+        { url: String -> url }
+    )
+
     suspend fun downloadFullApk(apkUrl: String, onProgress: (Float) -> Unit): Result<File> = withContext(Dispatchers.IO) {
-        try {
-            downloadFile(apkUrl, outputApkFile, onProgress)
-            Result.success(outputApkFile)
-        } catch (e: Exception) {
-            Result.failure(e)
+        val downloadUrl = apkUrl.replace("https://", "")
+        var lastError: Exception? = null
+        for (mirror in downloadMirrors) {
+            val url = mirror(downloadUrl)
+            try {
+                downloadFile(url, outputApkFile, onProgress)
+                return@withContext Result.success(outputApkFile)
+            } catch (e: Exception) {
+                lastError = e
+            }
         }
+        Result.failure(lastError ?: Exception("下载失败"))
     }
 
     fun saveAsBase(apkFile: File) {
@@ -165,14 +177,19 @@ class UpdateManager(private val context: Context) {
         val totalBytes = body.contentLength()
         body.byteStream().use { inputStream ->
             FileOutputStream(targetFile).use { outputStream ->
-                val buffer = ByteArray(8192)
+                val buffer = ByteArray(65536)
                 var bytesRead: Int
                 var totalRead = 0L
+                var lastProgress = 0f
                 while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                     outputStream.write(buffer, 0, bytesRead)
                     totalRead += bytesRead
                     if (totalBytes > 0) {
-                        onProgress(totalRead.toFloat() / totalBytes)
+                        val progress = totalRead.toFloat() / totalBytes
+                        if (progress - lastProgress >= 0.01f || progress >= 1f) {
+                            onProgress(progress)
+                            lastProgress = progress
+                        }
                     }
                 }
             }
