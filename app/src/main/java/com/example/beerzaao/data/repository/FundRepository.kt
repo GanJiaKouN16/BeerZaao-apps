@@ -2,6 +2,7 @@ package com.example.beerzaao.data.repository
 
 import com.example.beerzaao.data.remote.ApiService
 import com.example.beerzaao.data.remote.dto.FundEstimateDto
+import com.example.beerzaao.data.remote.dto.FundGradeDto
 import com.example.beerzaao.data.remote.dto.StockQuoteItem
 import com.example.beerzaao.data.remote.dto.StockQuoteData
 import com.example.beerzaao.data.remote.dto.StockQuoteResponse
@@ -161,6 +162,35 @@ class FundRepository(private val apiService: ApiService) {
                         Result.success(name)
                     } else {
                         Result.failure(Exception("未找到基金"))
+                    }
+                } else {
+                    Result.failure(Exception("请求失败: ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun getFundGrade(code: String): Result<FundGradeDto?> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = "https://fundmobapi.eastmoney.com/FundMApi/FundGradeDetail.ashx?FCODE=$code&deviceid=Wap&plat=Wap&product=EFund&version=2.0.0"
+                val response = apiService.getFundGrade(url)
+                if (response.isSuccessful) {
+                    val gradeResponse = response.body()
+                    if (gradeResponse?.errCode == 0 && !gradeResponse.datas.isNullOrEmpty()) {
+                        val latest = gradeResponse.datas.first()
+                        val dto = FundGradeDto(
+                            ratingDate = latest.ratingDate,
+                            haitongRating = latest.haitongRating?.toIntOrNull() ?: 0,
+                            zhaoshangRating = latest.zhaoshangRating?.toIntOrNull() ?: 0,
+                            shanghai3YearRating = latest.shanghai3YearRating?.toIntOrNull() ?: 0,
+                            jiaanRating = latest.jiaanRating?.toIntOrNull() ?: 0
+                        )
+                        Result.success(dto)
+                    } else {
+                        Result.success(null)
                     }
                 } else {
                     Result.failure(Exception("请求失败: ${response.code()}"))

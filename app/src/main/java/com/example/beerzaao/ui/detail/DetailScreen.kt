@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.beerzaao.ui.theme.Brand
 import com.example.beerzaao.ui.theme.CardBg
 import com.example.beerzaao.ui.theme.CardBorder
 import com.example.beerzaao.ui.theme.StockDown
@@ -97,6 +98,13 @@ fun DetailScreen(
                 uiState.performance?.let { perf ->
                     Spacer(modifier = Modifier.height(16.dp))
                     PerformanceCard(performance = perf)
+                }
+
+                uiState.grade?.let { grade ->
+                    if (grade.zhaoshangRating > 0 || grade.haitongRating > 0 || grade.jiaanRating > 0 || grade.shanghai3YearRating > 0) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        GradeCard(grade = grade)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -264,6 +272,74 @@ private fun PerformanceItem(label: String, rateText: String) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun GradeCard(
+    grade: com.example.beerzaao.data.remote.dto.FundGradeDto,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        border = BorderStroke(1.dp, CardBorder),
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "基金评级",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                grade.ratingDate?.let { date ->
+                    Text(
+                        text = date,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            GradeRatingRow("招商", grade.zhaoshangRating)
+            Spacer(modifier = Modifier.height(8.dp))
+            GradeRatingRow("海通", grade.haitongRating)
+            Spacer(modifier = Modifier.height(8.dp))
+            GradeRatingRow("济安", grade.jiaanRating)
+            Spacer(modifier = Modifier.height(8.dp))
+            GradeRatingRow("上海三年", grade.shanghai3YearRating)
+        }
+    }
+}
+
+@Composable
+private fun GradeRatingRow(label: String, rating: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(56.dp)
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            repeat(5) { index ->
+                val starColor = if (rating > 0 && index < rating) Brand else Color(0xFFD0D5DD)
+                Text(
+                    text = "\u2605",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = starColor
+                )
+            }
         }
     }
 }

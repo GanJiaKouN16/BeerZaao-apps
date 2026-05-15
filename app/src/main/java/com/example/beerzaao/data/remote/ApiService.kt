@@ -1,5 +1,6 @@
 package com.example.beerzaao.data.remote
 
+import com.example.beerzaao.data.remote.dto.FundGradeResponse
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.GET
@@ -14,4 +15,7 @@ interface ApiService {
 
     @GET
     suspend fun getTencentQuotes(@Url url: String): Response<ResponseBody>
+
+    @GET
+    suspend fun getFundGrade(@Url url: String): Response<FundGradeResponse>
 }

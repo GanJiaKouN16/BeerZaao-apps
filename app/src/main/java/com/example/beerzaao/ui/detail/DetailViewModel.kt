@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.beerzaao.BeerZaaoApp
 import com.example.beerzaao.data.remote.dto.FundEstimateDto
+import com.example.beerzaao.data.remote.dto.FundGradeDto
 import com.example.beerzaao.data.remote.dto.StockQuoteItem
 import com.example.beerzaao.util.FundPerformance
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +33,9 @@ data class DetailUiState(
     val isHoldingsLoading: Boolean = false,
     val holdingsError: String? = null,
     val performance: FundPerformance? = null,
-    val isPerformanceLoading: Boolean = false
+    val isPerformanceLoading: Boolean = false,
+    val grade: FundGradeDto? = null,
+    val isGradeLoading: Boolean = false
 )
 
 class DetailViewModel(application: Application) : AndroidViewModel(application) {
@@ -52,6 +55,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
         refreshEstimate()
         loadHoldings()
         loadPerformance()
+        loadGrade()
     }
 
     fun refreshEstimate() {
@@ -149,6 +153,21 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
                     holdings = updatedHoldings,
                     weightedEstimateRate = weightedRate
                 )
+            }
+        }
+    }
+
+    private fun loadGrade() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isGradeLoading = true)
+            val result = app.fundRepository.getFundGrade(_uiState.value.fundCode)
+            if (result.isSuccess) {
+                _uiState.value = _uiState.value.copy(
+                    grade = result.getOrNull(),
+                    isGradeLoading = false
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(isGradeLoading = false)
             }
         }
     }
