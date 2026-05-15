@@ -123,7 +123,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun downloadAndInstall(useDelta: Boolean) {
+    fun downloadAndInstall() {
         viewModelScope.launch {
             val info = when (val s = _uiState.value.updateState) {
                 is UpdateState.Available -> s.info
@@ -135,35 +135,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             )
 
             try {
-                val apkFile = if (useDelta && info.patchUrl != null) {
-                    val baseApk = app.updateManager.getCachedBaseApk()
-                    if (baseApk == null) {
-                        downloadFull(info.apkUrl)
-                    } else {
-                        val result = app.updateManager.downloadPatch(info.patchUrl) { progress ->
-                            _uiState.value = _uiState.value.copy(
-                                updateState = UpdateState.Downloading(progress * 0.8f)
-                            )
-                        }
-                        if (result.isFailure) {
-                            downloadFull(info.apkUrl)
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                updateState = UpdateState.Downloading(0.85f)
-                            )
-                            val patchResult = app.updateManager.applyPatch(baseApk, result.getOrThrow())
-                            if (patchResult.isFailure) {
-                                downloadFull(info.apkUrl)
-                            } else {
-                                patchResult.getOrThrow().also { file ->
-                                    app.updateManager.saveAsBase(file)
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    downloadFull(info.apkUrl)
-                }
+                val apkFile = downloadFull(info.apkUrl)
 
                 _uiState.value = _uiState.value.copy(
                     updateState = UpdateState.ReadyToInstall(apkFile)

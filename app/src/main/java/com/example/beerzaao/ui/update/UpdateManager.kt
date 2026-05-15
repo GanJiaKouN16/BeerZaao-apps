@@ -5,8 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
+import com.example.beerzaao.data.remote.dto.GitHubRelease
 import com.example.beerzaao.data.remote.dto.UpdateInfo
-import com.example.beerzaao.util.BsPatch
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -49,17 +49,20 @@ class UpdateManager(private val context: Context) {
     private val repoOwner = "GanJiaKouN16"
     private val repoName = "BeerZaao-apps"
 
-    private val updateUrls = listOf(
-        "https://cdn.jsdelivr.net/gh/$repoOwner/$repoName@master/update.json",
-        "https://raw.githubusercontent.com/$repoOwner/$repoName/master/update.json"
+    private val githubApiUrls = listOf(
+        "https://api.github.com/repos/$repoOwner/$repoName/releases/latest",
+        "https://ghproxy.com/https://api.github.com/repos/$repoOwner/$repoName/releases/latest"
     )
 
     suspend fun checkForUpdate(): UpdateState = withContext(Dispatchers.IO) {
         try {
             var lastError: Exception? = null
-            for (url in updateUrls) {
+            for (baseUrl in githubApiUrls) {
                 try {
-                    val request = Request.Builder().url(url).build()
+                    val request = Request.Builder()
+                        .url(baseUrl)
+                        .addHeader("Accept", "application/vnd.github.v3+json")
+                        .build()
                     val response = client.newCall(request).execute()
                     if (!response.isSuccessful) {
                         lastError = Exception("检查更新失败: ${response.code}")
@@ -69,15 +72,28 @@ class UpdateManager(private val context: Context) {
                         lastError = Exception("响应为空")
                         continue
                     }
-                    val updateInfo = gson.fromJson(body, UpdateInfo::class.java)
+                    val release = gson.fromJson(body, GitHubRelease::class.java)
 
                     val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
+                    val latestVersion = release.tagName.removePrefix("v")
 
-                    if (compareVersions(updateInfo.latestVersion, currentVersion) <= 0) {
+                    if (compareVersions(latestVersion, currentVersion) <= 0) {
                         return@withContext UpdateState.UpToDate
                     }
 
-                    if (updateInfo.apkUrl.isNullOrEmpty()) return@withContext UpdateState.Error("未找到 APK 下载地址")
+                    val apkAsset = release.assets?.firstOrNull { it.name.endsWith(".apk") }
+                    if (apkAsset == null) {
+                        lastError = Exception("未找到 APK 文件")
+                        continue
+                    }
+
+                    val updateInfo = UpdateInfo(
+                        version = latestVersion,
+                        downloadUrl = apkAsset.downloadUrl,
+                        releaseDate = release.publishedAt,
+                        notes = release.body,
+                        releaseUrl = release.htmlUrl
+                    )
 
                     return@withContext UpdateState.Available(updateInfo)
                 } catch (e: Exception) {
@@ -90,27 +106,9 @@ class UpdateManager(private val context: Context) {
         }
     }
 
-    suspend fun downloadPatch(patchUrl: String, onProgress: (Float) -> Unit): Result<File> = withContext(Dispatchers.IO) {
-        try {
-            downloadFile(patchUrl, patchFile, onProgress)
-            Result.success(patchFile)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
     suspend fun downloadFullApk(apkUrl: String, onProgress: (Float) -> Unit): Result<File> = withContext(Dispatchers.IO) {
         try {
             downloadFile(apkUrl, outputApkFile, onProgress)
-            Result.success(outputApkFile)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    fun applyPatch(oldApk: File, patch: File): Result<File> {
-        return try {
-            BsPatch.apply(oldApk, outputApkFile, patch)
             Result.success(outputApkFile)
         } catch (e: Exception) {
             Result.failure(e)

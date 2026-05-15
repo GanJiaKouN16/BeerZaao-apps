@@ -217,22 +217,25 @@ fun HomeScreen(
         is UpdateState.Available -> {
             AlertDialog(
                 onDismissRequest = { viewModel.dismissUpdateDialog() },
-                title = { Text("发现新版本 ${state.info.latestVersion}") },
+                title = { Text("发现新版本 v${state.info.latestVersion}") },
                 text = {
                     Column {
                         if (!state.info.notes.isNullOrBlank()) {
-                            Text(state.info.notes, style = MaterialTheme.typography.bodySmall)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = state.info.notes,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
                         }
                         Text(
-                            if (state.info.patchUrl != null) "支持增量更新" else "将下载完整 APK",
+                            text = "将下载完整 APK 安装包",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { viewModel.downloadAndInstall(useDelta = true) }) {
+                    TextButton(onClick = { viewModel.downloadAndInstall() }) {
                         Text("📩 更新")
                     }
                 },
